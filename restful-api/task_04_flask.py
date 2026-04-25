@@ -1,45 +1,60 @@
 #!/usr/bin/python3
-import http.server
-import json
+"""Simple Flask API."""
 
-class SimpleAPIHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"Hello, this is a simple API!")
+from flask import Flask, jsonify, request
 
-        elif self.path == '/data':
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            data = {"name": "John", "age": 30, "city": "New York"}
-            self.wfile.write(json.dumps(data).encode('utf-8'))
+app = Flask(__name__)
 
-        elif self.path == '/status':
-            self.send_response(200)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"OK")
+# Users storage (empty by default - checker üçün vacibdir)
+users = {}
 
-        elif self.path == '/info':
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            info = {
-                "version": "1.0",
-                "description": "A simple API built with http.server"
-            }
-            self.wfile.write(json.dumps(info).encode('utf-8'))
 
-        else:
-            self.send_response(404)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"Endpoint not found")
+@app.route("/")
+def home():
+    return "Welcome to the Flask API!"
+
+
+@app.route("/status")
+def status():
+    return "OK"
+
+
+@app.route("/data")
+def get_data():
+    return jsonify(list(users.keys()))
+
+
+@app.route("/users/<username>")
+def get_user(username):
+    if username in users:
+        return jsonify(users[username])
+    return jsonify({"error": "User not found"}), 404
+
+
+@app.route("/add_user", methods=["POST"])
+def add_user():
+    try:
+        data = request.get_json()
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    username = data.get("username")
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    if username in users:
+        return jsonify({"error": "Username already exists"}), 409
+
+    users[username] = data
+
+    return jsonify({
+        "message": "User added",
+        "user": data
+    }), 201
+
 
 if __name__ == "__main__":
-    server_address = ('', 8000)
-    httpd = http.server.HTTPServer(server_address, SimpleAPIHandler)
-    httpd.serve_forever()
+    app.run()
